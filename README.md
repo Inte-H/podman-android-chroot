@@ -43,7 +43,7 @@ Run every step below, and `podman` itself, as root inside the chroot.
 
 `install.sh` installs `podman`, `docker` and `podman-trusted` into `/usr/local/bin`, the scripts
 into `/usr/local/lib/podman-android`, and `containers.conf`, `storage.conf` and one OCI hook
-into `/etc/containers`. Existing files are not overwritten; merge changes from `etc/` yourself.
+into `/etc/containers`. Existing `containers.conf`, `storage.conf` and `config` are not overwritten; merge changes from `etc/` and `lib/config` yourself.
 `PREFIX` and `ETCDIR` change the locations. To uninstall, delete those files.
 
 Settings live in `/usr/local/lib/podman-android/config`:
@@ -56,7 +56,8 @@ Settings live in `/usr/local/lib/podman-android/config`:
 | `JAIL_NPROC` | process and thread limit of a jailed container | 4096 |
 | `NETGUARD_BLOCK4`, `NETGUARD_BLOCK6` | ranges containers are blocked from | private, link-local and carrier-internal ranges |
 
-Keep the uid range below 10000. Uids from 10000 up belong to Android apps.
+If you change the uid range, pick uids Android does not use. Apps use 10000 and up, and system uids are
+scattered below that. A container running as such a uid has that account's rights on the phone.
 
 ## Run modes
 

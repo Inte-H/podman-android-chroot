@@ -43,7 +43,7 @@ English: [README.md](README.md)
 
 `install.sh`는 `podman`, `docker`, `podman-trusted`를 `/usr/local/bin`에, 스크립트를
 `/usr/local/lib/podman-android`에, `containers.conf`·`storage.conf`·OCI 훅 하나를
-`/etc/containers`에 설치합니다. 이미 있는 파일은 덮어쓰지 않으니 `etc/`와 비교해 직접 반영하십시오.
+`/etc/containers`에 설치합니다. 이미 있는 `containers.conf`, `storage.conf`, `config`는 덮어쓰지 않으니 `etc/`, `lib/config`와 비교해 직접 반영하십시오.
 설치 위치는 `PREFIX`, `ETCDIR`로 바꿀 수 있고, 제거는 이 파일들을 삭제하면 됩니다.
 
 설정은 `/usr/local/lib/podman-android/config`에 있습니다.
@@ -56,7 +56,8 @@ English: [README.md](README.md)
 | `JAIL_NPROC` | jail 컨테이너 프로세스·스레드 수 제한 | 4096 |
 | `NETGUARD_BLOCK4`, `NETGUARD_BLOCK6` | 컨테이너에서 접근을 막을 대역 | 사설망, 링크 로컬, 통신사 내부망 |
 
-UID 범위는 10000 미만으로 두십시오. 10000 이상은 안드로이드 앱이 쓰는 대역입니다.
+UID 범위를 바꿀 때는 안드로이드가 쓰지 않는 구간을 고르십시오. 10000 이상은 앱이 쓰고, 그 아래에도 시스템 UID가
+섞여 있습니다. 컨테이너가 이 UID로 실행되면 폰에서도 그 계정의 권한을 갖습니다.
 
 ## 실행 모드
 

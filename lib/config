@@ -6,8 +6,8 @@ ROOTFS=
 HOOKS_DIR=/etc/containers/oci/hooks.d
 
 # How a non-root user becomes root: the su binary of your root solution, or "sudo" for the
-# chroot's own sudo. Neither worked on the tested phone (see the README), where the wrapper
-# was used from a root shell.
+# chroot's own sudo. Neither worked on the tested phone (Android's su cannot run inside the
+# chroot, Samsung's DEFEX kills sudo), so there the wrapper is run from a root shell.
 SU=/system/bin/su
 
 # Jail mode gives every container its own uid from this range. Without user namespaces the
