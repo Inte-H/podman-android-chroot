@@ -24,7 +24,7 @@ while ((i < ${#args[@]})); do
     --runtime-flag=*|--ssh=*|--storage-driver=*|--storage-opt=*|--tls-ca=*|--tls-cert=*|\
     --tls-key=*|--tmpdir=*|--url=*|--volumepath=*|\
     --help|-h|--remote|-r|--remote=*|--syslog|--syslog=*|--transient-store|\
-    --transient-store=*|--version|-v) ((i += 1)) ;;
+    --transient-store=*|--noout|--version|-v) ((i += 1)) ;;
     -*) echo "podman: global option '${args[i]}' is not supported by this wrapper" >&2
         exit 125 ;;
     *) break ;;
@@ -37,9 +37,10 @@ case ${args[i]:-} in
 esac
 inject() { args=("${args[@]:0:i+1}" "$@" "${args[@]:i+1}"); }
 
-# These reach netavark's bridge path or create containers without going through run/create
+# These reach netavark's bridge path or create containers without going through run/create.
+# runlabel runs the image's own podman command line against the real podman.
 case $sub in
-  "network connect"|"kube play"|"play kube")
+  "network connect"|"kube play"|"play kube"|runlabel)
     echo "podman: '$sub' is not available on this kernel" >&2
     exit 125 ;;
 esac
