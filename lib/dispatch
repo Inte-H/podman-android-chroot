@@ -8,24 +8,41 @@ PODMAN=/usr/bin/podman
 mode=$1; shift
 args=("$@")
 
-# The subcommand comes after the global options; those that take a separate value are skipped
+# The subcommand comes after the global options. An option missing from these lists (podman
+# also has hidden ones) is refused: misreading its value as the subcommand would skip the jail.
 i=0
 while ((i < ${#args[@]})); do
   case ${args[i]} in
-    --cgroup-manager|--config|--conmon|-c|--connection|--events-backend|--hooks-dir|--identity|\
-    --imagestore|--log-level|--module|--network-cmd-path|--network-config-dir|--out|--root|\
-    --runroot|--runtime|--runtime-flag|--ssh|--storage-driver|--storage-opt|--tmpdir|--url|\
-    --volumepath) ((i += 2)) ;;
-    -*) ((i += 1)) ;;
+    --cdi-spec-dir|--cgroup-manager|--config|--conmon|-c|--connection|--events-backend|\
+    --hooks-dir|--identity|--imagestore|--log-level|--module|--network-cmd-path|\
+    --network-config-dir|--out|--root|--runroot|--runtime|--runtime-flag|--ssh|\
+    --storage-driver|--storage-opt|--tls-ca|--tls-cert|--tls-key|--tmpdir|--url|--volumepath)
+      ((i += 2)) ;;
+    --cdi-spec-dir=*|--cgroup-manager=*|--config=*|--conmon=*|--connection=*|\
+    --events-backend=*|--hooks-dir=*|--identity=*|--imagestore=*|--log-level=*|--module=*|\
+    --network-cmd-path=*|--network-config-dir=*|--out=*|--root=*|--runroot=*|--runtime=*|\
+    --runtime-flag=*|--ssh=*|--storage-driver=*|--storage-opt=*|--tls-ca=*|--tls-cert=*|\
+    --tls-key=*|--tmpdir=*|--url=*|--volumepath=*|\
+    --help|-h|--remote|-r|--remote=*|--syslog|--syslog=*|--transient-store|\
+    --transient-store=*|--version|-v) ((i += 1)) ;;
+    -*) echo "podman: global option '${args[i]}' is not supported by this wrapper" >&2
+        exit 125 ;;
     *) break ;;
   esac
 done
 case ${args[i]:-} in
   container|image|buildx) ((i += 1)); sub=${args[i]:-} ;;
-  pod) ((i += 1)); sub="pod ${args[i]:-}" ;;
+  pod|network|kube|play) ((i += 1)); sub="${args[i-1]} ${args[i]:-}" ;;
   *) sub=${args[i]:-} ;;
 esac
 inject() { args=("${args[@]:0:i+1}" "$@" "${args[@]:i+1}"); }
+
+# These reach netavark's bridge path or create containers without going through run/create
+case $sub in
+  "network connect"|"kube play"|"play kube")
+    echo "podman: '$sub' is not available on this kernel" >&2
+    exit 125 ;;
+esac
 
 # A named network or "bridge" makes netavark create a bridge device on the phone. Refuse
 # before the device exists. A --network in the container's own command line is refused too.
@@ -33,6 +50,10 @@ has_net=
 case $sub in run|create|build|"pod create") scan=${#args[@]} ;; *) scan=0 ;; esac
 for ((j = 0; j < scan; j++)); do
   case ${args[j]} in
+    # The new pod's infra container would take the bridge network
+    --pod=new:*|--pod) [[ ${args[j]} == --pod && ${args[j+1]:-} != new:* ]] && continue
+      echo "podman: --pod new: is not available on this kernel (create the pod first)" >&2
+      exit 125 ;;
     --network=*|--net=*) net=${args[j]#*=} ;;
     --network|--net) net=${args[j+1]:-} ;;
     *) continue ;;

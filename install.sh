@@ -1,12 +1,12 @@
 #!/bin/bash
 # Installs podman-android into the chroot it is run from. Run it as root inside the chroot.
 #   PREFIX   where bin/ and lib/ go          (default /usr/local)
-#   ETCDIR   podman's configuration folder   (default /etc/containers)
 #   ROOTFS   the chroot's path seen from Android; detected when not given
-# Existing files in ETCDIR are kept; compare them with etc/ by hand.
+# Existing containers.conf, storage.conf and config are kept; compare them with etc/ by hand.
 set -eu
 PREFIX=${PREFIX:-/usr/local}
-ETCDIR=${ETCDIR:-/etc/containers}
+# The only place podman reads them from: enter.sh clears CONTAINERS_CONF and the like
+ETCDIR=/etc/containers
 src=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 lib=$PREFIX/lib/podman-android
 

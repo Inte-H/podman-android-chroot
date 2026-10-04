@@ -25,11 +25,13 @@ for n in $NETGUARD_BLOCK4; do block -4 "$n"; done
 for n in $NETGUARD_BLOCK6; do block -6 "$n"; done
 
 # The addresses the phone holds right now and the networks it is directly attached to. This
-# also covers a public address assigned straight to the phone
+# also covers a public address assigned straight to the phone. Only routes the kernel adds for
+# an interface address count as attached: a VPN app's split routes are proto static and would
+# cut the container off from the internet
 while read -r a; do block -4 "$a"; done < <(
   ip -4 -o addr show scope global | awk '{sub(/\/.*/, "", $4); print $4 "/32"}'
-  ip -4 route show table all scope link | awk '$1 ~ /^[0-9.]+\/[0-9]+$/ {print $1}')
+  ip -4 route show table all proto kernel | awk '$1 ~ /^[0-9.]+\/[0-9]+$/ {print $1}')
 while read -r a; do block -6 "$a"; done < <(
   ip -6 -o addr show scope global | awk '{sub(/\/.*/, "", $4); print $4 "/128"}'
-  ip -6 route show table all | awk '$1 ~ /^[0-9a-f:]+\/[0-9]+$/ && $1 !~ /^fe80/ && $1 !~ /^ff/ {print $1}')
+  ip -6 route show table all proto kernel | awk '$1 ~ /^[0-9a-f:]+\/[0-9]+$/ && $1 !~ /^fe80/ && $1 !~ /^ff/ {print $1}')
 exit 0

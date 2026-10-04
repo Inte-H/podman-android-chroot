@@ -44,7 +44,7 @@ English: [README.md](README.md)
 `install.sh`는 `podman`, `docker`, `podman-trusted`를 `/usr/local/bin`에, 스크립트를
 `/usr/local/lib/podman-android`에, `containers.conf`·`storage.conf`·OCI 훅 하나를
 `/etc/containers`에 설치합니다. 이미 있는 `containers.conf`, `storage.conf`, `config`는 덮어쓰지 않으니 `etc/`, `lib/config`와 비교해 직접 반영하십시오.
-설치 위치는 `PREFIX`, `ETCDIR`로 바꿀 수 있고, 제거는 이 파일들을 삭제하면 됩니다.
+설치 위치는 `PREFIX`로 바꿀 수 있고, 제거는 이 파일들을 삭제하면 됩니다.
 
 설정은 `/usr/local/lib/podman-android/config`에 있습니다.
 

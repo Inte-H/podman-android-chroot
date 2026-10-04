@@ -44,7 +44,7 @@ Run every step below, and `podman` itself, as root inside the chroot.
 `install.sh` installs `podman`, `docker` and `podman-trusted` into `/usr/local/bin`, the scripts
 into `/usr/local/lib/podman-android`, and `containers.conf`, `storage.conf` and one OCI hook
 into `/etc/containers`. Existing `containers.conf`, `storage.conf` and `config` are not overwritten; merge changes from `etc/` and `lib/config` yourself.
-`PREFIX` and `ETCDIR` change the locations. To uninstall, delete those files.
+`PREFIX` changes the install location. To uninstall, delete those files.
 
 Settings live in `/usr/local/lib/podman-android/config`:
 
