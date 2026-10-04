@@ -1,0 +1,19 @@
+#!/bin/bash
+# Stands in front of the real podman (/usr/bin/podman). On a stock Android kernel a container
+# only starts with root and a prepared mount namespace, so this climbs to root and goes
+# through enter.sh.
+# Entering our own mount namespace again with nsenter leaves the chroot and lands at the top
+# of the namespace, which is where enter.sh has to start.
+#   podman, docker   every container is jailed: own uid, no capabilities, read-only root
+#   podman-trusted   the container runs as the image asks, usually root
+self=$(readlink -f "${BASH_SOURCE[0]}")
+lib=${self%/bin/*}/lib/podman-android
+. "$lib/config"
+[[ -n $ROOTFS ]] || { echo "podman: ROOTFS is not set in $lib/config (run install.sh)" >&2; exit 125; }
+mode=jail
+[[ ${0##*/} == podman-trusted ]] && mode=trusted
+run=(/usr/bin/nsenter --mount=/proc/self/ns/mnt /system/bin/sh "$ROOTFS$lib/enter.sh"
+  --rootfs "$ROOTFS" --cwd "$PWD" "$lib/dispatch" "$mode" "$@")
+((EUID == 0)) && exec "${run[@]}"
+[[ $SU == *sudo ]] && exec "$SU" -- "${run[@]}"
+exec "$SU" -c "exec$(printf ' %q' "${run[@]}")"

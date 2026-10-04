@@ -1,0 +1,15 @@
+# Two services without a bridge network: the first one gets the slirp4netns network and
+# publishes the port, the second one joins its network namespace and reaches it on localhost.
+#   podman-compose up -d
+services:
+  web:
+    image: docker.io/nginxinc/nginx-unprivileged:alpine
+    network_mode: slirp4netns
+    ports:
+      - "8080:8080"
+  probe:
+    image: docker.io/library/alpine:latest
+    network_mode: "service:web"
+    depends_on:
+      - web
+    command: ["sh", "-c", "until wget -qO- http://127.0.0.1:8080/ | grep -o '<title>.*</title>'; do sleep 1; done; sleep 600"]

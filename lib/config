@@ -1,0 +1,27 @@
+# podman-android settings. Read by bash scripts as plain VAR=value lines.
+
+# Path of this chroot's root directory as Android sees it. install.sh fills it in.
+ROOTFS=
+# OCI hooks directory. install.sh fills it in.
+HOOKS_DIR=/etc/containers/oci/hooks.d
+
+# How a non-root user becomes root: the su binary of your root solution, or "sudo" for the
+# chroot's own sudo. Neither worked on the tested phone (see the README), where the wrapper
+# was used from a root shell.
+SU=/system/bin/su
+
+# Jail mode gives every container its own uid from this range. Without user namespaces the
+# uid inside the container is the uid on the phone, so the range must be one that Android
+# does not use and does not block from the network (on the tested phone, uids of 10000 and
+# above without an app behind them could not open sockets).
+JAIL_UID_MIN=4100
+JAIL_UID_MAX=4999
+# Memory limit of a jailed container. Empty means half of the phone's RAM.
+JAIL_MEMORY=
+# Limit on processes and threads of a jailed container's uid.
+JAIL_NPROC=4096
+
+# Destinations a container must not reach, on top of the phone's own addresses and directly
+# attached networks, which netguard detects at container start.
+NETGUARD_BLOCK4="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 192.0.0.0/24"
+NETGUARD_BLOCK6="fc00::/7"

@@ -1,0 +1,35 @@
+#!/bin/bash
+# OCI createRuntime hook. slirp4netns forwards to anywhere the phone can reach, so this puts
+# "unreachable" routes inside the container's network namespace for the phone itself and the
+# networks it is attached to. The phone's own routes and firewall are left untouched.
+# A container that is given NET_ADMIN can remove the routes again.
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+. "$(dirname "$(readlink -f "$0")")/config"
+state=$(cat)
+[[ $state =~ \"pid\":[[:space:]]*([0-9]+) ]] ||
+  { echo "netguard: no pid in the container state" >&2; exit 1; }
+pid=${BASH_REMATCH[1]}
+cns=$(readlink "/proc/$pid/ns/net")
+hns=$(readlink /proc/self/ns/net)
+[[ -n $cns && -n $hns ]] || { echo "netguard: cannot read the network namespaces" >&2; exit 1; }
+# A host-network container: routes added here would change the phone's routing
+[[ $cns == "$hns" ]] && exit 0
+
+block() {
+  local err
+  err=$(nsenter -t "$pid" -n ip "$1" route add unreachable "$2" 2>&1) || [[ $err == *"File exists"* ]] ||
+    { echo "netguard: cannot block $2: $err" >&2; exit 1; }
+}
+
+for n in $NETGUARD_BLOCK4; do block -4 "$n"; done
+for n in $NETGUARD_BLOCK6; do block -6 "$n"; done
+
+# The addresses the phone holds right now and the networks it is directly attached to. This
+# also covers a public address assigned straight to the phone
+while read -r a; do block -4 "$a"; done < <(
+  ip -4 -o addr show scope global | awk '{sub(/\/.*/, "", $4); print $4 "/32"}'
+  ip -4 route show table all scope link | awk '$1 ~ /^[0-9.]+\/[0-9]+$/ {print $1}')
+while read -r a; do block -6 "$a"; done < <(
+  ip -6 -o addr show scope global | awk '{sub(/\/.*/, "", $4); print $4 "/128"}'
+  ip -6 route show table all | awk '$1 ~ /^[0-9a-f:]+\/[0-9]+$/ && $1 !~ /^fe80/ && $1 !~ /^ff/ {print $1}')
+exit 0

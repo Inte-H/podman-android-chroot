@@ -1,0 +1,86 @@
+#!/bin/bash
+# Root stage of the podman wrapper. Runs inside the namespace enter.sh prepared and adds the
+# options this kernel needs before handing over to the real podman.
+#   dispatch jail|trusted [podman arguments...]
+lib=$(dirname "$(readlink -f "$0")")
+. "$lib/config"
+PODMAN=/usr/bin/podman
+mode=$1; shift
+args=("$@")
+
+# The subcommand comes after the global options; those that take a separate value are skipped
+i=0
+while ((i < ${#args[@]})); do
+  case ${args[i]} in
+    --cgroup-manager|--config|--conmon|-c|--connection|--events-backend|--hooks-dir|--identity|\
+    --imagestore|--log-level|--module|--network-cmd-path|--network-config-dir|--out|--root|\
+    --runroot|--runtime|--runtime-flag|--ssh|--storage-driver|--storage-opt|--tmpdir|--url|\
+    --volumepath) ((i += 2)) ;;
+    -*) ((i += 1)) ;;
+    *) break ;;
+  esac
+done
+case ${args[i]:-} in
+  container|image|buildx) ((i += 1)); sub=${args[i]:-} ;;
+  pod) ((i += 1)); sub="pod ${args[i]:-}" ;;
+  *) sub=${args[i]:-} ;;
+esac
+inject() { args=("${args[@]:0:i+1}" "$@" "${args[@]:i+1}"); }
+
+# A named network or "bridge" makes netavark create a bridge device on the phone. Refuse
+# before the device exists. A --network in the container's own command line is refused too.
+has_net=
+case $sub in run|create|build|"pod create") scan=${#args[@]} ;; *) scan=0 ;; esac
+for ((j = 0; j < scan; j++)); do
+  case ${args[j]} in
+    --network=*|--net=*) net=${args[j]#*=} ;;
+    --network|--net) net=${args[j+1]:-} ;;
+    *) continue ;;
+  esac
+  has_net=1
+  case $net in
+    slirp4netns*|host|none|container:*|ns:*) ;;
+    *) echo "podman: network '$net' is not available on this kernel" \
+         "(use slirp4netns, host, none or container:NAME)" >&2
+       exit 125 ;;
+  esac
+done
+
+# Containers with the same uid see each other and share one process limit, so each gets its own
+pick_uid() {
+  local used c
+  used=" $("$PODMAN" ps -aq 2>/dev/null | xargs -r "$PODMAN" inspect --format '{{.Config.User}}' 2>/dev/null |
+    cut -d: -f1 | tr '\n' ' ')"
+  for _ in $(seq 200); do
+    c=$((JAIL_UID_MIN + RANDOM % (JAIL_UID_MAX - JAIL_UID_MIN + 1)))
+    [[ $used == *" $c "* ]] && continue
+    pgrep -u "$c" >/dev/null && continue
+    echo "$c"
+    return
+  done
+  return 1
+}
+
+case $sub in
+  run|create)
+    if [[ $mode == jail ]]; then
+      uid=$(pick_uid) ||
+        { echo "podman: no free uid in $JAIL_UID_MIN-$JAIL_UID_MAX" >&2; exit 125; }
+      mem=${JAIL_MEMORY:-$(awk '/^MemTotal:/ {print int($2 / 2)}' /proc/meminfo)k}
+      # Options given on the command line come later and win, so each of these can be
+      # overridden per container
+      inject --user "$uid:$uid" --cap-drop=all --security-opt=no-new-privileges --read-only \
+        --memory="$mem" --ulimit "nproc=$JAIL_NPROC"
+    else
+      # containers.conf has no setting that forbids privilege escalation by default
+      inject --security-opt=no-new-privileges
+    fi ;;
+  build)
+    # Build steps ignore netns and mounts from containers.conf: left alone they go to the
+    # bridge network and fail on the mqueue mount
+    inject --network=slirp4netns --hooks-dir="$HOOKS_DIR" --volume="$lib/empty:/dev/mqueue:ro" ;;
+  "pod create")
+    # A pod with an infra container would otherwise take the bridge network
+    [[ -z $has_net && " ${args[*]} " != *" --infra=false "* ]] && inject --network=slirp4netns ;;
+esac
+exec "$PODMAN" "${args[@]}"
